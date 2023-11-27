@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -59,6 +60,8 @@ func newUI() *ui {
 
 	ui.SetRoot(grid, true)
 
+	ui.registerKeybindings()
+
 	return ui
 }
 
@@ -107,4 +110,22 @@ func (ui *ui) SetSourceLangOptions(opts []string, selected func(string, int)) {
 
 func (ui *ui) SetTargetLangOptions(opts []string, selected func(string, int)) {
 	ui.targetLangDropDown.SetOptions(opts, selected)
+}
+func (ui *ui) registerKeybindings() {
+	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Modifiers() == tcell.ModAlt {
+			switch event.Rune() {
+			case 's':
+				ui.SetFocus(ui.sourceLangDropDown)
+				return nil
+			case 't':
+				ui.SetFocus(ui.targetLangDropDown)
+				return nil
+			case 'i':
+				ui.SetFocus(ui.inputTextArea)
+				return nil
+			}
+		}
+		return event
+	})
 }
