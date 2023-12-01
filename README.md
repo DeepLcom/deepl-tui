@@ -17,10 +17,14 @@ ARCH=amd64
 # install dir (must exist)
 BIN_DIR=$HOME/.local/bin
 
-# download into install dir
+# download latest release into install dir
+RELEASE_TAG=$(curl -sSfL https://api.github.com/repos/DeepLcom/deepl-tui/releases/latest | jq -r '.tag_name')
 curl \
-    -L https://github.com/DeepLcom/deepl-tui/releases/download/latest/deepl-tui_${OS}_${ARCH} \
+    -L https://github.com/DeepLcom/deepl-tui/releases/download/${RELEASE_TAG}/deepl-tui_${RELEASE_TAG}_${OS}_${ARCH} \
     -o ${BIN_DIR}/deepl-tui
+
+# make it executable
+chmod +x ${BIN_DIR}/deepl-tui
 ```
 
 Alternatively, if you have the [Go tools][go-install] installed, you can use
