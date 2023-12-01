@@ -19,13 +19,13 @@ BIN_DIR=$HOME/.local/bin
 
 # download into install dir
 curl \
-    -L https://github.com/cluttrdev/deepl-tui/releases/download/latest/deepl-tui_${OS}_${ARCH} \
+    -L https://github.com/DeepLcom/deepl-tui/releases/download/latest/deepl-tui_${OS}_${ARCH} \
     -o ${BIN_DIR}/deepl-tui
 ```
 
 Alternatively, if you have the [Go tools][go-install] installed, you can use
 ```shell
-go install github.com/cluttrdev/deepl-tui@latest
+go install github.com/DeepLcom/deepl-tui@latest
 ```
 
 ## Usage
@@ -59,6 +59,6 @@ $ deepl-tui --auth-key=f63c02c5-f056...
 This project is released under the [MIT License](./LICENSE).
 
 <!-- Links -->
-[prebuilt-binaries]: https://github.com/cluttrdev/deepl-tui/releases/latest
+[prebuilt-binaries]: https://github.com/DeepLcom/deepl-tui/releases/latest
 [go-install]: https://go.dev/doc/install
 [create-account]: https://www.deepl.com/pro#developer

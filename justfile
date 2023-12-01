@@ -32,7 +32,7 @@ dist *args="":
 # create a new release
 release *args="":
     #!/bin/sh
-    export GITHUB_OWNER=cluttrdev
+    export GITHUB_OWNER=DeepLcom
     export GITHUB_REPO=deepl-tui
     {{GIT_DIR}}/scripts/release.sh -p {{MAIN}} {{args}}
 
