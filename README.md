@@ -54,6 +54,10 @@ $ deepl-tui --auth-key=f63c02c5-f056...
 | Focus target language dropdown | `alt-t`  | Hit `enter` to list options |
 | Close the application          | `ctrl-c` |                             |
 
+## Changelog
+
+Notable changes to this project will be documented in the [CHANGELOG.md](./CHANGELOG.md)
+
 ## License
 
 This project is released under the [MIT License](./LICENSE).
