@@ -58,16 +58,21 @@ var debug bool = false
 type ui struct {
 	tview.Application
 
-	grid *tview.Grid
+	layout *tview.Grid
 
 	header *tview.TextView
 	footer *tview.TextView
+	pages  *tview.Pages
+
+	// translate page
+	sourceLangDropDown *tview.DropDown
+	targetLangDropDown *tview.DropDown
 
 	inputTextArea  *tview.TextArea
 	outputTextView *tview.TextView
 
-	sourceLangDropDown *tview.DropDown
-	targetLangDropDown *tview.DropDown
+	// glossaries page
+
 }
 
 func newUI() *ui {
@@ -77,7 +82,35 @@ func newUI() *ui {
 
 	ui.header = tview.NewTextView().
 		SetTextAlign(tview.AlignLeft)
+	ui.header.SetBorder(true)
 
+	ui.footer = tview.NewTextView().
+		SetTextAlign(tview.AlignRight)
+	ui.footer.SetBorder(true)
+
+	ui.pages = tview.NewPages().
+		AddPage("translate", ui.setupTranslatePage(), true, true).
+		AddPage("glossaries", ui.setupGlossariesPage(), true, false)
+
+	ui.layout = tview.NewGrid().
+		SetBorders(false).
+		AddItem(ui.header, 0, 0, 1, 1, 0, 0, false).
+		AddItem(ui.pages, 1, 0, 1, 1, 0, 0, true).
+		AddItem(ui.footer, 2, 0, 1, 1, 0, 0, false)
+
+	ui.SetRoot(ui.layout, true)
+
+	ui.registerKeybindings()
+
+	ui.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		w, h := screen.Size()
+		return ui.adjustToScreenSize(w, h)
+	})
+
+	return ui
+}
+
+func (ui *ui) setupTranslatePage() tview.Primitive {
 	ui.sourceLangDropDown = tview.NewDropDown()
 	ui.targetLangDropDown = tview.NewDropDown()
 
@@ -89,35 +122,22 @@ func newUI() *ui {
 		ui.Draw()
 	})
 
-	ui.footer = tview.NewTextView().
-		SetTextAlign(tview.AlignRight)
-
-	grid := tview.NewGrid()
-
-	grid.
-		AddItem(ui.header, 0, 0, 1, 2, 0, 0, false).
-		AddItem(ui.sourceLangDropDown, 1, 0, 1, 1, 0, 0, false).
-		AddItem(ui.targetLangDropDown, 1, 1, 1, 1, 0, 0, false).
-		AddItem(ui.inputTextArea, 2, 0, 1, 1, 0, 0, true).
-		AddItem(ui.outputTextView, 2, 1, 1, 1, 0, 0, false).
-		AddItem(ui.footer, 3, 0, 1, 2, 0, 0, false)
-
-	grid.
+	layout := tview.NewGrid().
+		SetRows(1, 0).
 		SetColumns(0, 0).
-		SetBorders(true)
+		SetBorders(true).
+		AddItem(ui.sourceLangDropDown, 0, 0, 1, 1, 0, 0, false).
+		AddItem(ui.targetLangDropDown, 0, 1, 1, 1, 0, 0, false).
+		AddItem(ui.inputTextArea, 1, 0, 1, 1, 0, 0, true).
+		AddItem(ui.outputTextView, 1, 1, 1, 1, 0, 0, false)
+	layout.SetBorderPadding(0, 0, 0, 0)
 
-	ui.grid = grid
+	return layout
+}
 
-	ui.SetRoot(ui.grid, true)
-
-	ui.registerKeybindings()
-
-	ui.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-		w, h := screen.Size()
-		return ui.adjustToScreenSize(w, h)
-	})
-
-	return ui
+func (ui *ui) setupGlossariesPage() tview.Primitive {
+	layout := tview.NewGrid()
+	return layout
 }
 
 func (ui *ui) registerKeybindings() {
@@ -162,7 +182,7 @@ func (ui *ui) adjustToScreenSize(width int, height int) bool {
 		headerHeight = 1
 	}
 
-	ui.grid.SetRows(headerHeight, 1, 0, 1)
+	ui.layout.SetRows(headerHeight+2, 0, 1+2)
 	ui.header.SetText(strings.TrimPrefix(headerText, "\n"))
 
 	if width > 96 {
