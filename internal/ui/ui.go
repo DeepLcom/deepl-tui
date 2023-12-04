@@ -1,7 +1,8 @@
-package main
+package ui
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -53,9 +54,9 @@ const (
 `
 )
 
-var debug bool = false
+var debug bool = true
 
-type ui struct {
+type UI struct {
 	tview.Application
 
 	layout *tview.Grid
@@ -75,8 +76,8 @@ type ui struct {
 
 }
 
-func newUI() *ui {
-	ui := &ui{
+func NewUI() *UI {
+	ui := &UI{
 		Application: *tview.NewApplication(),
 	}
 
@@ -110,7 +111,7 @@ func newUI() *ui {
 	return ui
 }
 
-func (ui *ui) setupTranslatePage() tview.Primitive {
+func (ui *UI) setupTranslatePage() tview.Primitive {
 	ui.sourceLangDropDown = tview.NewDropDown()
 	ui.targetLangDropDown = tview.NewDropDown()
 
@@ -135,12 +136,12 @@ func (ui *ui) setupTranslatePage() tview.Primitive {
 	return layout
 }
 
-func (ui *ui) setupGlossariesPage() tview.Primitive {
+func (ui *UI) setupGlossariesPage() tview.Primitive {
 	layout := tview.NewGrid()
 	return layout
 }
 
-func (ui *ui) registerKeybindings() {
+func (ui *UI) registerKeybindings() {
 	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Modifiers() == tcell.ModAlt {
 			switch event.Rune() {
@@ -159,7 +160,7 @@ func (ui *ui) registerKeybindings() {
 	})
 }
 
-func (ui *ui) adjustToScreenSize(width int, height int) bool {
+func (ui *UI) adjustToScreenSize(width int, height int) bool {
 	var (
 		headerText   string
 		headerHeight int
@@ -203,26 +204,46 @@ func (ui *ui) adjustToScreenSize(width int, height int) bool {
 	return false
 }
 
-func (ui *ui) SetFooter(text string) {
+func (ui *UI) SetFooter(text string) {
 	ui.footer.SetText(text)
 }
 
-func (ui *ui) GetCurrentSourceLang() string {
+func (ui *UI) GetCurrentSourceLang() string {
 	_, opt := ui.sourceLangDropDown.GetCurrentOption()
 	return opt
 }
 
-func (ui *ui) GetCurrentTargetLang() string {
+func (ui *UI) GetCurrentTargetLang() string {
 	_, opt := ui.targetLangDropDown.GetCurrentOption()
 	return opt
 }
 
-func (ui *ui) SetSourceLangOptions(opts []string, selected func(string, int)) {
+func (ui *UI) SetSourceLangOptions(opts []string, selected func(string, int)) {
 	ui.sourceLangDropDown.
 		SetOptions(opts, selected).
 		SetCurrentOption(0)
 }
 
-func (ui *ui) SetTargetLangOptions(opts []string, selected func(string, int)) {
+func (ui *UI) SetTargetLangOptions(opts []string, selected func(string, int)) {
 	ui.targetLangDropDown.SetOptions(opts, selected)
+}
+
+func (ui *UI) SetInputTextChangedFunc(handler func()) {
+	ui.inputTextArea.SetChangedFunc(handler)
+}
+
+func (ui *UI) GetInputText() string {
+	return ui.inputTextArea.GetText()
+}
+
+func (ui *UI) WriteOutputText(r io.Reader) error {
+	_, err := io.Copy(ui.outputTextView, r)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ui *UI) ClearOutputText() {
+	ui.outputTextView.Clear()
 }

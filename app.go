@@ -3,13 +3,16 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cluttrdev/deepl-go/deepl"
+
+	"github.com/DeepLcom/deepl-tui/internal/ui"
 )
 
 type Application struct {
-	ui         *ui
+	ui         *ui.UI
 	translator *deepl.Translator
 
 	input chan string
@@ -22,11 +25,11 @@ type Application struct {
 }
 
 func NewApplication(t *deepl.Translator) (*Application, error) {
-	ui := newUI()
-	ui.EnableMouse(true)
+	tui := ui.NewUI()
+	tui.EnableMouse(true)
 
 	return &Application{
-		ui:         ui,
+		ui:         tui,
 		translator: t,
 
 		input: make(chan string),
@@ -40,8 +43,8 @@ func (app *Application) Run() error {
 		app.ui.SetFooter(err.Error())
 	}
 
-	app.ui.inputTextArea.SetChangedFunc(func() {
-		app.input <- app.ui.inputTextArea.GetText()
+	app.ui.SetInputTextChangedFunc(func() {
+		app.input <- app.ui.GetInputText()
 	})
 
 	go func() {
@@ -139,10 +142,9 @@ func (app *Application) updateTranslation() (err error) {
 		return err
 	}
 
-	app.ui.outputTextView.Clear()
+	app.ui.ClearOutputText()
 	for _, translation := range translations {
-		_, err := fmt.Fprintf(app.ui.outputTextView, "%s", translation.Text)
-		if err != nil {
+		if err := app.ui.WriteOutputText(strings.NewReader(translation.Text)); err != nil {
 			return err
 		}
 	}
