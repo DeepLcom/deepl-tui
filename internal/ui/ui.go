@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -54,26 +53,18 @@ const (
 `
 )
 
-var debug bool = true
-
 type UI struct {
 	tview.Application
 
 	layout *tview.Grid
 
 	header *tview.TextView
-	footer *tview.TextView
-	pages  *tview.Pages
+	footer *tview.InputField
 
-	// translate page
-	sourceLangDropDown *tview.DropDown
-	targetLangDropDown *tview.DropDown
-
-	inputTextArea  *tview.TextArea
-	outputTextView *tview.TextView
-
-	// glossaries page
-
+	pages          *tview.Pages
+	pageIndex      []string
+	translatePage  *TranslatePage
+	glossariesPage *GlossariesPage
 }
 
 func NewUI() *UI {
@@ -85,13 +76,16 @@ func NewUI() *UI {
 		SetTextAlign(tview.AlignLeft)
 	ui.header.SetBorder(true)
 
-	ui.footer = tview.NewTextView().
-		SetTextAlign(tview.AlignRight)
-	ui.footer.SetBorder(true)
+	ui.setupFooter()
 
-	ui.pages = tview.NewPages().
-		AddPage("translate", ui.setupTranslatePage(), true, true).
-		AddPage("glossaries", ui.setupGlossariesPage(), true, false)
+	ui.translatePage = newTranslatePage(ui)
+	ui.glossariesPage = newGlossariesPage(ui)
+
+	ui.pages = tview.NewPages()
+	ui.pages.AddPage("translate", ui.translatePage, true, true)
+	ui.pageIndex = append(ui.pageIndex, "translate")
+	ui.pages.AddPage("glossaries", ui.glossariesPage, true, false)
+	ui.pageIndex = append(ui.pageIndex, "glossaries")
 
 	ui.layout = tview.NewGrid().
 		SetBorders(false).
@@ -111,48 +105,17 @@ func NewUI() *UI {
 	return ui
 }
 
-func (ui *UI) setupTranslatePage() tview.Primitive {
-	ui.sourceLangDropDown = tview.NewDropDown()
-	ui.targetLangDropDown = tview.NewDropDown()
-
-	ui.inputTextArea = tview.NewTextArea().
-		SetPlaceholder("Type to translate.")
-
-	ui.outputTextView = tview.NewTextView()
-	ui.outputTextView.SetChangedFunc(func() {
-		ui.Draw()
-	})
-
-	layout := tview.NewGrid().
-		SetRows(1, 0).
-		SetColumns(0, 0).
-		SetBorders(true).
-		AddItem(ui.sourceLangDropDown, 0, 0, 1, 1, 0, 0, false).
-		AddItem(ui.targetLangDropDown, 0, 1, 1, 1, 0, 0, false).
-		AddItem(ui.inputTextArea, 1, 0, 1, 1, 0, 0, true).
-		AddItem(ui.outputTextView, 1, 1, 1, 1, 0, 0, false)
-	layout.SetBorderPadding(0, 0, 0, 0)
-
-	return layout
-}
-
-func (ui *UI) setupGlossariesPage() tview.Primitive {
-	layout := tview.NewGrid()
-	return layout
-}
-
 func (ui *UI) registerKeybindings() {
 	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Modifiers() == tcell.ModAlt {
+			if event.Key() == tcell.KeyTab {
+				ui.cycePage()
+				return nil
+			}
+
 			switch event.Rune() {
-			case 's':
-				ui.SetFocus(ui.sourceLangDropDown)
-				return nil
-			case 't':
-				ui.SetFocus(ui.targetLangDropDown)
-				return nil
-			case 'i':
-				ui.SetFocus(ui.inputTextArea)
+			case ':':
+				ui.switchToCommandPrompt()
 				return nil
 			}
 		}
@@ -164,9 +127,6 @@ func (ui *UI) adjustToScreenSize(width int, height int) bool {
 	var (
 		headerText   string
 		headerHeight int
-
-		sourceLangLabel string
-		targetLangLabel string
 	)
 
 	if width > 112 && height > 30 {
@@ -186,22 +146,34 @@ func (ui *UI) adjustToScreenSize(width int, height int) bool {
 	ui.layout.SetRows(headerHeight+2, 0, 1+2)
 	ui.header.SetText(strings.TrimPrefix(headerText, "\n"))
 
-	if width > 96 {
-		sourceLangLabel = "Select source language: "
-		targetLangLabel = "Select target language: "
-	} else {
-		sourceLangLabel = ""
-		targetLangLabel = ""
-	}
-
-	ui.sourceLangDropDown.SetLabel(sourceLangLabel)
-	ui.targetLangDropDown.SetLabel(targetLangLabel)
-
-	if debug {
-		ui.footer.SetText(fmt.Sprintf("(%d,%d)", width, height))
-	}
+	ui.translatePage.adjustToSize()
 
 	return false
+}
+
+func (ui *UI) switchToPage(name string) {
+	ui.pages.SwitchToPage(name)
+}
+
+func (ui *UI) cycePage() {
+	name, _ := ui.pages.GetFrontPage()
+	var j int = 0
+	for i, n := range ui.pageIndex {
+		if n == name {
+			if i < ui.pages.GetPageCount()-1 {
+				j = i + 1
+			}
+		}
+	}
+	ui.switchToPage(ui.pageIndex[j])
+}
+
+func (ui *UI) switchToCommandPrompt() {
+	ui.footer.
+		SetLabel(":").
+		SetText("").
+		SetDisabled(false)
+	ui.SetFocus(ui.footer)
 }
 
 func (ui *UI) SetFooter(text string) {
@@ -209,35 +181,35 @@ func (ui *UI) SetFooter(text string) {
 }
 
 func (ui *UI) GetCurrentSourceLang() string {
-	_, opt := ui.sourceLangDropDown.GetCurrentOption()
+	_, opt := ui.translatePage.sourceLangDropDown.GetCurrentOption()
 	return opt
 }
 
 func (ui *UI) GetCurrentTargetLang() string {
-	_, opt := ui.targetLangDropDown.GetCurrentOption()
+	_, opt := ui.translatePage.targetLangDropDown.GetCurrentOption()
 	return opt
 }
 
 func (ui *UI) SetSourceLangOptions(opts []string, selected func(string, int)) {
-	ui.sourceLangDropDown.
+	ui.translatePage.sourceLangDropDown.
 		SetOptions(opts, selected).
 		SetCurrentOption(0)
 }
 
 func (ui *UI) SetTargetLangOptions(opts []string, selected func(string, int)) {
-	ui.targetLangDropDown.SetOptions(opts, selected)
+	ui.translatePage.targetLangDropDown.SetOptions(opts, selected)
 }
 
 func (ui *UI) SetInputTextChangedFunc(handler func()) {
-	ui.inputTextArea.SetChangedFunc(handler)
+	ui.translatePage.inputTextArea.SetChangedFunc(handler)
 }
 
 func (ui *UI) GetInputText() string {
-	return ui.inputTextArea.GetText()
+	return ui.translatePage.inputTextArea.GetText()
 }
 
 func (ui *UI) WriteOutputText(r io.Reader) error {
-	_, err := io.Copy(ui.outputTextView, r)
+	_, err := io.Copy(ui.translatePage.outputTextView, r)
 	if err != nil {
 		return err
 	}
@@ -245,5 +217,5 @@ func (ui *UI) WriteOutputText(r io.Reader) error {
 }
 
 func (ui *UI) ClearOutputText() {
-	ui.outputTextView.Clear()
+	ui.translatePage.outputTextView.Clear()
 }
