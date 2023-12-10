@@ -107,6 +107,14 @@ func NewUI() *UI {
 
 func (ui *UI) registerKeybindings() {
 	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+        switch event.Key() {
+        case tcell.KeyCtrlC:
+            // don't quit here
+            return nil
+        case tcell.KeyCtrlQ:
+            ui.Application.Stop()
+        }
+
 		if event.Modifiers() == tcell.ModAlt {
 			if event.Key() == tcell.KeyTab {
 				ui.cycePage()
@@ -119,6 +127,7 @@ func (ui *UI) registerKeybindings() {
 				return nil
 			}
 		}
+
 		return event
 	})
 }

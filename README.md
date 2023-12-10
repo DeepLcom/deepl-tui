@@ -56,7 +56,7 @@ $ deepl-tui --auth-key=f63c02c5-f056...
 | Focus input text area          | `alt-i`  |                             |
 | Focus source language dropdown | `alt-s`  | Hit `enter` to list options |
 | Focus target language dropdown | `alt-t`  | Hit `enter` to list options |
-| Close the application          | `ctrl-c` |                             |
+| Quit the application           | `ctrl-q` |                             |
 
 ## Changelog
 
