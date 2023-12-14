@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cluttrdev/deepl-go/deepl"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -61,10 +62,9 @@ type UI struct {
 	header *tview.TextView
 	footer *tview.InputField
 
-	pages          *tview.Pages
-	pageIndex      []string
-	translatePage  *TranslatePage
-	glossariesPage *GlossariesPage
+	pages         *tview.Pages
+	pageIndex     []string
+	translatePage *TranslatePage
 }
 
 func NewUI() *UI {
@@ -79,13 +79,10 @@ func NewUI() *UI {
 	ui.setupFooter()
 
 	ui.translatePage = newTranslatePage(ui)
-	ui.glossariesPage = newGlossariesPage(ui)
 
 	ui.pages = tview.NewPages()
 	ui.pages.AddPage("translate", ui.translatePage, true, true)
 	ui.pageIndex = append(ui.pageIndex, "translate")
-	ui.pages.AddPage("glossaries", ui.glossariesPage, true, false)
-	ui.pageIndex = append(ui.pageIndex, "glossaries")
 
 	ui.layout = tview.NewGrid().
 		SetBorders(false).
@@ -107,13 +104,13 @@ func NewUI() *UI {
 
 func (ui *UI) registerKeybindings() {
 	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-        switch event.Key() {
-        case tcell.KeyCtrlC:
-            // don't quit here
-            return nil
-        case tcell.KeyCtrlQ:
-            ui.Application.Stop()
-        }
+		switch event.Key() {
+		case tcell.KeyCtrlC:
+			// don't quit here
+			return nil
+		case tcell.KeyCtrlQ:
+			ui.Application.Stop()
+		}
 
 		if event.Modifiers() == tcell.ModAlt {
 			if event.Key() == tcell.KeyTab {
@@ -209,6 +206,24 @@ func (ui *UI) SetTargetLangOptions(opts []string, selected func(string, int)) {
 	ui.translatePage.targetLangDropDown.SetOptions(opts, selected)
 }
 
+func (ui *UI) SetFormalityOptions(opts []string, selected func(string, int)) {
+	ui.translatePage.formalityDropDown.
+		SetOptions(opts, selected).
+		SetCurrentOption(0)
+}
+
+func (ui *UI) SetGlossaryOptions(options []string) {
+	ui.translatePage.glossaryWidget.SetOptions(options)
+}
+
+func (ui *UI) SetGlossariesDataFunc(data func(string, int) (*deepl.GlossaryInfo, []deepl.GlossaryEntry)) {
+	ui.translatePage.SetGlossaryDataFunc(data)
+}
+
+func (ui *UI) SetGlossarySelcetedFunc(selected func(string, int)) {
+	ui.translatePage.SetGlossarySelectedFunc(selected)
+}
+
 func (ui *UI) SetInputTextChangedFunc(handler func()) {
 	ui.translatePage.inputTextArea.SetChangedFunc(handler)
 }
@@ -227,4 +242,25 @@ func (ui *UI) WriteOutputText(r io.Reader) error {
 
 func (ui *UI) ClearOutputText() {
 	ui.translatePage.outputTextView.Clear()
+}
+
+// Returns a new primitive which puts the provided primitive in the center and
+// sets its size to the given width and height.
+func modal(p tview.Primitive, x, y, width, height int, focus bool) tview.Primitive {
+	m := tview.NewGrid().
+		SetColumns(x, width, 0).
+		SetRows(y, height, 0).
+		AddItem(p, 1, 1, 1, 1, 0, 0, focus)
+
+	// m.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+	//     px, py, pw, ph := p.GetRect()
+	//     ex, ey := event.Position()
+	//     if px <= ex && ex <= px + pw && py <= ey && ey <= py + ph {
+	//         consumed, capture = p.MouseHandler()(action, event, setFocus)
+	//         return
+	//     }
+	//     return true, nil
+	// })
+
+	return m
 }

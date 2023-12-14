@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-shellwords"
@@ -70,8 +71,11 @@ func (ui *UI) setupFooter() {
 		}
 
 		switch args[0] {
-		case "translate", "glossaries":
+		case "translate":
 			ui.switchToPage(args[0])
+		case "size":
+			_, _, w, h := ui.translatePage.GetInnerRect()
+			err = errors.New(fmt.Sprintf("(%d, %d)", w, h))
 		default:
 			err = errors.New("invalid command")
 		}
