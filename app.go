@@ -8,41 +8,43 @@ import (
 
 	"github.com/cluttrdev/deepl-go/deepl"
 
+	"github.com/DeepLcom/deepl-tui/internal/handlers"
 	"github.com/DeepLcom/deepl-tui/internal/ui"
 )
 
+// Application is the main type composing the ui and translator client.
 type Application struct {
 	ui         *ui.UI
 	translator *deepl.Translator
 
-	input chan string
-	text  string
+	textChanged chan struct{}
 
 	sourceLangs []string
-	sourceLang  *string
+	sourceLang  string
 	targetLangs []string
-	targetLang  *string
+	targetLang  string
 
 	formality string
 
-	glossaries    []deepl.GlossaryInfo
-	glossaryIndex int
+	glossaries handlers.GlossariesHandler
+	glossaryID string
 }
 
-func NewApplication(t *deepl.Translator) (*Application, error) {
+// NewApplication creates and returns a new apllication.
+func NewApplication(t *deepl.Translator) *Application {
 	tui := ui.NewUI()
 	tui.EnableMouse(true)
 
 	return &Application{
 		ui:         tui,
 		translator: t,
-
-		input: make(chan string),
-	}, nil
+	}
 }
 
+// Run initializes the application and runs the main loop.
 func (app *Application) Run() error {
-	defer close(app.input)
+	app.textChanged = make(chan struct{})
+	defer close(app.textChanged)
 
 	if err := app.setLanguageOptions(); err != nil {
 		app.ui.SetFooter(err.Error())
@@ -52,12 +54,10 @@ func (app *Application) Run() error {
 		app.ui.SetFooter(err.Error())
 	}
 
-	if err := app.setGlossaryOptions(); err != nil {
-		app.ui.SetFooter(err.Error())
-	}
+	app.setupGlossaryHandling()
 
 	app.ui.SetInputTextChangedFunc(func() {
-		app.input <- app.ui.GetInputText()
+		app.textChanged <- struct{}{}
 	})
 
 	go func() {
@@ -67,11 +67,10 @@ func (app *Application) Run() error {
 		var changed bool
 		for {
 			select {
-			case text, ok := <-app.input:
+			case _, ok := <-app.textChanged:
 				if !ok {
 					break
 				}
-				app.text = text
 				changed = true
 				ticker.Reset(period)
 			case <-ticker.C:
@@ -107,7 +106,7 @@ func (app *Application) setLanguageOptions() error {
 	app.ui.SetSourceLangOptions(
 		sourceLangOpts,
 		func(text string, index int) {
-			app.sourceLang = &app.sourceLangs[index]
+			app.sourceLang = app.sourceLangs[index]
 			app.updateTranslation()
 		},
 	)
@@ -127,7 +126,7 @@ func (app *Application) setLanguageOptions() error {
 	app.ui.SetTargetLangOptions(
 		targetLangOpts,
 		func(text string, index int) {
-			app.targetLang = &app.targetLangs[index]
+			app.targetLang = app.targetLangs[index]
 			app.updateTranslation()
 		},
 	)
@@ -154,75 +153,97 @@ func (app *Application) setFormalityOptions() error {
 	return nil
 }
 
-func (app *Application) setGlossaryOptions() error {
-	var opts []string
-	infos, err := app.translator.ListGlossaries()
-	if err != nil {
-		return err
-	}
-	app.glossaries = infos
-	app.glossaryIndex = -1
-	for _, info := range app.glossaries {
-		opts = append(opts, info.Name)
+func (app *Application) setupGlossaryHandling() {
+	if err := app.updateGlossaries(); err != nil {
+		app.ui.SetFooter(err.Error())
 	}
 
-	app.ui.SetGlossaryOptions(opts)
-	app.ui.SetGlossariesDataFunc(func(text string, index int) (*deepl.GlossaryInfo, []deepl.GlossaryEntry) {
-		if index == 0 || index > len(app.glossaries)+1 {
-			return nil, nil
+	app.ui.SetGlossaryDataFunc(func(id string) (deepl.GlossaryInfo, []deepl.GlossaryEntry) {
+		info, ok := app.glossaries.Get(id)
+		if !ok {
+			return info, nil
 		}
-
-		info := &app.glossaries[index-1]
-		if info.Name != text {
-			return nil, nil
-		}
-
-		entries, err := app.translator.GetGlossaryEntries(info.GlossaryId)
-		if err != nil {
-			return nil, nil
-		}
-
-		return info, entries
-	})
-	app.ui.SetGlossarySelcetedFunc(func(text string, index int) {
-		if index > 0 {
-			name := app.glossaries[index-1].Name
-			if name != text {
-				app.glossaryIndex = -1
-				app.ui.SetFooter(fmt.Sprintf("Glossaries name mismatch: %s != %s", name, text))
-				return
+		entries, ok := app.glossaries.Entries(id)
+		if !ok {
+			var err error
+			entries, err = app.glossaries.FetchEntries(app.translator, id)
+			if err != nil {
+				app.ui.SetFooter(err.Error())
 			}
 		}
-		app.glossaryIndex = index - 1
+		return info, entries
+	})
+
+	app.ui.SetGlossarySelectedFunc(func(id string) {
+		app.glossaryID = id
 		app.updateTranslation()
 	})
 
-	return nil
+	app.ui.SetGlossaryCreateFunc(func(name string, source string, target string, entries [][2]string) {
+		if err := app.glossaries.Create(app.translator, name, source, target, entries); err != nil {
+			app.ui.SetFooter(err.Error())
+			return
+		}
+
+		if err := app.updateGlossaries(); err != nil {
+			app.ui.SetFooter(err.Error())
+		}
+	})
+
+	app.ui.SetGlossaryUpdateFunc(func(id string, entries [][2]string) {
+		info, ok := app.glossaries.Get(id)
+		if !ok {
+			app.ui.SetFooter(fmt.Sprintf("Unknown glossary id: %s", id))
+			return
+		}
+
+		if err := app.glossaries.Create(app.translator, info.Name, info.SourceLang, info.TargetLang, entries); err != nil {
+			app.ui.SetFooter(err.Error())
+			return
+		}
+
+		if err := app.glossaries.Delete(app.translator, id); err != nil {
+			app.ui.SetFooter(err.Error())
+		}
+
+		if err := app.updateGlossaries(); err != nil {
+			app.ui.SetFooter(err.Error())
+		}
+	})
+
+	app.ui.SetGlossaryDeleteFunc(func(id string) {
+		if err := app.glossaries.Delete(app.translator, id); err != nil {
+			app.ui.SetFooter(err.Error())
+		}
+
+		if err := app.updateGlossaries(); err != nil {
+			app.ui.SetFooter(err.Error())
+		}
+	})
 }
 
 func (app *Application) updateTranslation() (err error) {
 	app.ui.ClearOutputText()
-	if app.text == "" {
+
+	text := app.ui.GetInputText()
+	if text == "" {
 		return nil
-	} else if app.targetLang == nil {
+	} else if app.targetLang == "" {
 		return errors.New("Target language not set")
 	}
 
-	text := []string{app.text}
-	targetLang := *app.targetLang
-
 	var opts []deepl.TranslateOption
-	if app.sourceLang != nil && *app.sourceLang != "" {
-		opts = append(opts, deepl.WithSourceLang(*app.sourceLang))
+	if app.sourceLang != "" {
+		opts = append(opts, deepl.WithSourceLang(app.sourceLang))
 	}
 	if app.formality != "" {
 		opts = append(opts, deepl.WithFormality(app.formality))
 	}
-	if app.glossaryIndex >= 0 {
-		opts = append(opts, deepl.WithGlossaryID(app.glossaries[app.glossaryIndex].GlossaryId))
+	if app.glossaryID != "" {
+		opts = append(opts, deepl.WithGlossaryID(app.glossaryID))
 	}
 
-	translations, err := app.translator.TranslateText(text, targetLang, opts...)
+	translations, err := app.translator.TranslateText([]string{text}, app.targetLang, opts...)
 	if err != nil {
 		return err
 	}
@@ -232,6 +253,30 @@ func (app *Application) updateTranslation() (err error) {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (app *Application) updateGlossaries() (err error) {
+	if err := app.glossaries.FetchGlossaries(app.translator); err != nil {
+		return err
+	}
+
+	var opts [][2]string
+	for _, info := range app.glossaries.List() {
+		opts = append(opts, [2]string{info.GlossaryId, info.Name})
+	}
+
+	app.ui.SetGlossaryOptions(opts)
+
+	// >>>>>>>>
+	if err := app.glossaries.FetchLanguages(app.translator); err != nil {
+		return err
+	}
+	langs := app.glossaries.GetSourceLangs("")
+
+	app.ui.SetGlossaryLanguageOptions(langs)
+	// <<<<<<<<
 
 	return nil
 }

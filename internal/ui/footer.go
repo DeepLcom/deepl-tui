@@ -71,7 +71,7 @@ func (ui *UI) setupFooter() {
 		}
 
 		switch args[0] {
-		case "translate":
+		case "translate", "glossaries":
 			ui.switchToPage(args[0])
 		case "size":
 			_, _, w, h := ui.translatePage.GetInnerRect()

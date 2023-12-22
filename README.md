@@ -4,6 +4,10 @@
 
 ![](./assets/demo/demo.gif)
 
+## Changelog
+
+Notable changes to this project will be documented in the [CHANGELOG.md](./CHANGELOG.md)
+
 ## Installation
 
 To install `deepl-tui` you can download a [prebuilt binary][prebuilt-binaries]
@@ -19,9 +23,9 @@ BIN_DIR=$HOME/.local/bin
 
 # download latest release into install dir
 RELEASE_TAG=$(curl -sSfL https://api.github.com/repos/DeepLcom/deepl-tui/releases/latest | jq -r '.tag_name')
-curl \
-    -L https://github.com/DeepLcom/deepl-tui/releases/download/${RELEASE_TAG}/deepl-tui_${RELEASE_TAG}_${OS}_${ARCH} \
-    -o ${BIN_DIR}/deepl-tui
+curl -sSfL \
+    -o ${BIN_DIR}/deepl-tui \
+    https://github.com/DeepLcom/deepl-tui/releases/download/${RELEASE_TAG}/deepl-tui_${RELEASE_TAG}_${OS}_${ARCH}
 
 # make it executable
 chmod +x ${BIN_DIR}/deepl-tui
@@ -36,7 +40,7 @@ go install github.com/DeepLcom/deepl-tui@latest
 
 Since `deepl-tui` uses the DeepL API you'll need an API authentication key.
 To get a key, please [create an account here][create-account]. With a DeepL API 
-Free account you can translate up to 500,000 characters/month.
+Free account you can translate up to 500,000 characters per month.
 
 You can either pass the authentication key as an environment variable or via
 the `--auth-key` option, i.e.
@@ -51,16 +55,31 @@ $ deepl-tui --auth-key=f63c02c5-f056...
 
 ### Key bindings
 
-| Action                         | Keys     | Comment                     |
-| ---                            | ---      | ---                         |
-| Focus input text area          | `alt-i`  |                             |
-| Focus source language dropdown | `alt-s`  | Hit `enter` to list options |
-| Focus target language dropdown | `alt-t`  | Hit `enter` to list options |
-| Quit the application           | `ctrl-q` |                             |
+#### Global
 
-## Changelog
+| Action               | Keys      | Comment |
+| ---                  | ---       | ---     |
+| Cycle through pages  | `alt-tab` |         |
+| Quit the application | `ctrl-q`  |         |
 
-Notable changes to this project will be documented in the [CHANGELOG.md](./CHANGELOG.md)
+#### Translate Page
+
+| Action                          | Keys    | Comment                     |
+| ---                             | ---     | ---                         |
+| Focus input text area           | `alt-i` |                             |
+| Focus source language dropdown  | `alt-s` | Hit `enter` to list options |
+| Focus target language dropdown  | `alt-t` | Hit `enter` to list options |
+| Focus formality option dropdown | `alt-f` | Hit `enter` to list options |
+| Focus glossary option button    | `alt-g` | Hit `enter` to open dialog  |
+
+#### Glossaries Page
+
+| Action                       | Keys    | Comment |
+| ---                          | ---     | ---     |
+| Focus glossary entry form    | `alt-e` |         |
+| Focus glossary info form     | `alt-i` |         |
+| Focus glossaries list        | `alt-l` |         |
+| Focus glossary entries table | `alt-t` |         |
 
 ## License
 

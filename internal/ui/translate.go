@@ -1,11 +1,12 @@
 package ui
 
 import (
-	"github.com/cluttrdev/deepl-go/deepl"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
+// TranslatePage provides widgets to translate input text and specify
+// translation options.
 type TranslatePage struct {
 	tview.Pages
 
@@ -16,88 +17,79 @@ type TranslatePage struct {
 
 	formalityDropDown *tview.DropDown
 	glossaryButton    *tview.Button
-	glossaryWidget    *GlossariesWidget
-	glossarySelected  func(string, int)
-	glossaryDialog    *Dialog
+	glossaryDialog    *GlossariesDialog
 	glossaryVisible   bool
+	glossarySelected  func(string)
 
 	inputTextArea  *tview.TextArea
 	outputTextView *tview.TextView
 }
 
 func newTranslatePage(ui *UI) *TranslatePage {
-	widget := &TranslatePage{
+	page := &TranslatePage{
 		Pages:  *tview.NewPages(),
 		layout: tview.NewGrid(),
 	}
 
-	widget.sourceLangDropDown = tview.NewDropDown()
+	page.sourceLangDropDown = tview.NewDropDown()
 
-	widget.inputTextArea = tview.NewTextArea().
+	page.inputTextArea = tview.NewTextArea().
 		SetPlaceholder("Type to translate.")
 
-	widget.outputTextView = tview.NewTextView().
+	page.outputTextView = tview.NewTextView().
 		SetChangedFunc(func() {
 			ui.Draw()
 		})
 
-	widget.targetLangDropDown = tview.NewDropDown()
-	widget.formalityDropDown = tview.NewDropDown()
-	widget.glossaryButton = tview.NewButton("Glossary").
+	page.targetLangDropDown = tview.NewDropDown()
+	page.formalityDropDown = tview.NewDropDown()
+	page.glossaryButton = tview.NewButton("Glossary").
 		SetSelectedFunc(func() {
-			widget.setGlossariesDialogVisibility(!widget.glossaryVisible)
+			page.setGlossariesDialogVisibility(!page.glossaryVisible)
 		})
 	container := tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(widget.targetLangDropDown, 0, 1, true).
-		AddItem(widget.formalityDropDown, 14, 0, true).
+		AddItem(page.targetLangDropDown, 0, 1, true).
+		AddItem(page.formalityDropDown, 14, 0, true).
 		AddItem(nil, 1, 0, false).
-		AddItem(widget.glossaryButton, 14, 0, false).
+		AddItem(page.glossaryButton, 14, 0, false).
 		AddItem(nil, 1, 0, false)
 
-	widget.layout.
+	page.layout.
 		SetRows(1, 0).
 		SetColumns(0, 0).
 		SetBorders(true).
-		AddItem(widget.sourceLangDropDown, 0, 0, 1, 1, 0, 0, false).
+		AddItem(page.sourceLangDropDown, 0, 0, 1, 1, 0, 0, false).
 		AddItem(container, 0, 1, 1, 1, 0, 0, false).
-		AddItem(widget.inputTextArea, 1, 0, 1, 1, 0, 0, true).
-		AddItem(widget.outputTextView, 1, 1, 1, 1, 0, 0, false)
-	widget.layout.SetBorderPadding(0, 0, 0, 0)
+		AddItem(page.inputTextArea, 1, 0, 1, 1, 0, 0, true).
+		AddItem(page.outputTextView, 1, 1, 1, 1, 0, 0, false)
+	page.layout.SetBorderPadding(0, 0, 0, 0)
 
-	widget.glossaryWidget = newGlossariesWidget(ui).
-		SetSelectedFunc(func(text string, index int) {
-
-		})
-	widget.glossaryDialog = NewDialog(widget.glossaryWidget).
-		AddButton("OK", func() {
-			index, text := widget.glossaryWidget.GetCurrentOption()
-			if widget.glossarySelected != nil {
-				widget.glossarySelected(text, index)
+	page.glossaryDialog = newGlossariesDialog().
+		SetAcceptedFunc(func(id string, name string) {
+			if page.glossarySelected != nil {
+				page.glossarySelected(id)
 			}
-			widget.setGlossariesDialogVisibility(false)
+			page.setGlossariesDialogVisibility(false)
 		}).
 		SetCancelFunc(func() {
-			widget.setGlossariesDialogVisibility(false)
+			page.setGlossariesDialogVisibility(false)
 		})
-	widget.glossaryDialog.
+	page.glossaryDialog.
 		SetTitle("Glossary").
 		SetBorder(true)
 
-	widget.Pages.AddPage("main", widget.layout, true, true)
-	widget.Pages.AddPage("dialog", widget.glossaryDialog, false, true)
-	widget.Pages.HidePage("dialog")
+	page.Pages.AddPage("main", page.layout, true, true)
+	page.Pages.AddPage("dialog", page.glossaryDialog, false, true)
+	page.Pages.HidePage("dialog")
 
-	widget.registerKeyBindings(ui)
+	page.registerKeyBindings(ui)
 
-	return widget
+	return page
 }
 
-func (w *TranslatePage) SetGlossaryDataFunc(data func(string, int) (*deepl.GlossaryInfo, []deepl.GlossaryEntry)) *TranslatePage {
-	w.glossaryWidget.SetDataFunc(data)
-	return w
-}
-
-func (w *TranslatePage) SetGlossarySelectedFunc(selected func(string, int)) *TranslatePage {
+// SetGlossarySelectedFunc sets a handler that is called when a glossary is
+// selected.
+func (w *TranslatePage) SetGlossarySelectedFunc(selected func(string)) *TranslatePage {
 	w.glossarySelected = selected
 	return w
 }
@@ -123,8 +115,10 @@ func (w *TranslatePage) registerKeyBindings(ui *UI) {
 				return nil
 			case 'f':
 				ui.SetFocus(w.formalityDropDown)
+				return nil
 			case 'g':
 				ui.SetFocus(w.glossaryButton)
+				return nil
 			case 'i':
 				ui.SetFocus(w.inputTextArea)
 				return nil

@@ -4,9 +4,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cluttrdev/deepl-go/deepl"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+
+	"github.com/cluttrdev/deepl-go/deepl"
 )
 
 const (
@@ -62,9 +63,10 @@ type UI struct {
 	header *tview.TextView
 	footer *tview.InputField
 
-	pages         *tview.Pages
-	pageIndex     []string
-	translatePage *TranslatePage
+	pages          *tview.Pages
+	pageIndex      []string
+	translatePage  *TranslatePage
+	glossariesPage *GlossariesPage
 }
 
 func NewUI() *UI {
@@ -79,10 +81,13 @@ func NewUI() *UI {
 	ui.setupFooter()
 
 	ui.translatePage = newTranslatePage(ui)
+	ui.glossariesPage = newGlossariesPage(ui)
 
 	ui.pages = tview.NewPages()
 	ui.pages.AddPage("translate", ui.translatePage, true, true)
 	ui.pageIndex = append(ui.pageIndex, "translate")
+	ui.pages.AddPage("glossaries", ui.glossariesPage, true, false)
+	ui.pageIndex = append(ui.pageIndex, "glossaries")
 
 	ui.layout = tview.NewGrid().
 		SetBorders(false).
@@ -159,6 +164,8 @@ func (ui *UI) adjustToScreenSize(width int, height int) bool {
 
 func (ui *UI) switchToPage(name string) {
 	ui.pages.SwitchToPage(name)
+	_, page := ui.pages.GetFrontPage()
+	ui.SetFocus(page)
 }
 
 func (ui *UI) cycePage() {
@@ -186,16 +193,6 @@ func (ui *UI) SetFooter(text string) {
 	ui.footer.SetText(text)
 }
 
-func (ui *UI) GetCurrentSourceLang() string {
-	_, opt := ui.translatePage.sourceLangDropDown.GetCurrentOption()
-	return opt
-}
-
-func (ui *UI) GetCurrentTargetLang() string {
-	_, opt := ui.translatePage.targetLangDropDown.GetCurrentOption()
-	return opt
-}
-
 func (ui *UI) SetSourceLangOptions(opts []string, selected func(string, int)) {
 	ui.translatePage.sourceLangDropDown.
 		SetOptions(opts, selected).
@@ -212,18 +209,42 @@ func (ui *UI) SetFormalityOptions(opts []string, selected func(string, int)) {
 		SetCurrentOption(0)
 }
 
-func (ui *UI) SetGlossaryOptions(options []string) {
-	ui.translatePage.glossaryWidget.SetOptions(options)
+// SetGlossaryOptions provides the ui with a list of available glossary ids and names.
+func (ui *UI) SetGlossaryOptions(options [][2]string) {
+	ui.translatePage.glossaryDialog.SetOptions(options)
+	ui.glossariesPage.SetOptions(options)
 }
 
-func (ui *UI) SetGlossariesDataFunc(data func(string, int) (*deepl.GlossaryInfo, []deepl.GlossaryEntry)) {
-	ui.translatePage.SetGlossaryDataFunc(data)
+// SetGlossaryLanguageOptions provides the ui with a list of supported glossary languages.
+func (ui *UI) SetGlossaryLanguageOptions(langs []string) {
+	ui.glossariesPage.SetLanguageOptions(langs)
 }
 
-func (ui *UI) SetGlossarySelcetedFunc(selected func(string, int)) {
-	ui.translatePage.SetGlossarySelectedFunc(selected)
+// SetGlossaryDataFunc sets a handler which can be called by the ui widgets to request glossary data.
+// It receives the glossary ID as an argument.
+func (ui *UI) SetGlossaryDataFunc(handler func(string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)) {
+	ui.translatePage.glossaryDialog.SetDataFunc(handler)
+	ui.glossariesPage.SetGlossaryDataFunc(handler)
 }
 
+func (ui *UI) SetGlossarySelectedFunc(handler func(string)) {
+	ui.translatePage.SetGlossarySelectedFunc(handler)
+}
+
+func (ui *UI) SetGlossaryCreateFunc(handler func(string, string, string, [][2]string)) {
+	ui.glossariesPage.SetGlossaryCreateFunc(handler)
+}
+
+func (ui *UI) SetGlossaryUpdateFunc(handler func(string, [][2]string)) {
+	ui.glossariesPage.SetGlossaryUpdateFunc(handler)
+}
+
+func (ui *UI) SetGlossaryDeleteFunc(handler func(string)) {
+	ui.glossariesPage.SetGlossaryDeleteFunc(handler)
+}
+
+// SetInputTextChangedFunc sets a handler that is called when the input text
+// changes.
 func (ui *UI) SetInputTextChangedFunc(handler func()) {
 	ui.translatePage.inputTextArea.SetChangedFunc(handler)
 }
@@ -233,7 +254,9 @@ func (ui *UI) GetInputText() string {
 }
 
 func (ui *UI) WriteOutputText(r io.Reader) error {
-	_, err := io.Copy(ui.translatePage.outputTextView, r)
+	w := ui.translatePage.outputTextView.BatchWriter()
+	defer w.Close()
+	_, err := io.Copy(w, r)
 	if err != nil {
 		return err
 	}
@@ -244,8 +267,8 @@ func (ui *UI) ClearOutputText() {
 	ui.translatePage.outputTextView.Clear()
 }
 
-// Returns a new primitive which puts the provided primitive in the center and
-// sets its size to the given width and height.
+// Returns a new primitive which puts the provided one at the given position
+// and sets its size to the given width and height.
 func modal(p tview.Primitive, x, y, width, height int, focus bool) tview.Primitive {
 	m := tview.NewGrid().
 		SetColumns(x, width, 0).

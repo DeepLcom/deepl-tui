@@ -27,11 +27,7 @@ func execute() error {
 		return err
 	}
 
-	app, err := NewApplication(translator)
-	if err != nil {
-		return err
-	}
-
+	app := NewApplication(translator)
 	return app.Run()
 }
 
@@ -39,7 +35,7 @@ func parseAuthKey() string {
 	// parse args
 	f := flag.String("auth-key", "", "the authentication key as given in your DeepL account.")
 	flag.Parse()
-	if *f != "" {
+	if f != nil && *f != "" {
 		return *f
 	}
 
