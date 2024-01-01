@@ -55,18 +55,43 @@ version=$(get_version)
 declare -A OSARCHMAP=(
     [linux]="amd64,arm,arm64"
     [darwin]="amd64,arm64"
-    [windows]="amd64,arm,arm64"
+    [windows]="amd64"
 )
 
 ${verbose} && echo "Building binaries..."
 for os in ${!OSARCHMAP[@]}; do
     for arch in ${OSARCHMAP[$os]//,/ }; do
-        out="${dist_dir}/${bin_name}_${version}_${os}_${arch}"
+        tmp_dir="${dist_dir}/${bin_name}_${version}_${os}_${arch}"
+        out="${tmp_dir}/${bin_name}"
 
         ${verbose} && echo "  for ${os}/${arch}"
         GOOS=${os} GOARCH=${arch} ${scriptsdir}/build.sh -o "${out}" -p "${package}"
     done
 done
 ${verbose} && echo "Building binaries... done"
+
+${verbose} && echo "Creating package archives..."
+for os in ${!OSARCHMAP[@]}; do
+    dirs=$(find ${dist_dir} -mindepth 1 -maxdepth 1 -type d -name ${bin_name}_${version}_${os}_*)
+
+    case "${os}" in
+        linux | darwin)
+            for dir in ${dirs}; do
+                find $dir -printf "%P\n" \
+                | tar -czf ${dir}.tar.gz --no-recursion -C ${dir} -T -
+
+                rm -r ${dir}
+            done
+            ;;
+        windows)
+            for dir in ${dirs}; do
+                (cd ${dir} && zip -q -r - .) > ${dir}.zip
+
+                rm -r ${dir}
+            done
+            ;;
+    esac
+done
+${verbose} && echo "Creating package archives... done"
 
 exit 0
