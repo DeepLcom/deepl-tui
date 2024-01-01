@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -37,8 +38,7 @@ func newGlossariesDialog() *GlossariesDialog {
 	w.dropDown.SetLabel("Select: ")
 
 	// table
-	w.table.
-		SetBorders(true)
+	w.table.SetBorders(true)
 
 	// buttons
 	selectButton := tview.NewButton("Accept").
@@ -112,10 +112,14 @@ func (w *GlossariesDialog) selectedFunc(text string, index int) {
 	w.table.Clear()
 	if index > 0 {
 		id := w.options[index-1][0]
-		_, entries := w.data(id)
+		info, entries := w.data(id)
+		if info.GlossaryId != "" {
+			w.table.SetCell(0, 0, tview.NewTableCell(strings.ToUpper(info.SourceLang)).SetTextColor(tview.Styles.SecondaryTextColor).SetExpansion(1))
+			w.table.SetCell(0, 1, tview.NewTableCell(strings.ToUpper(info.TargetLang)).SetTextColor(tview.Styles.SecondaryTextColor).SetExpansion(1))
+		}
 		for row, entry := range entries {
-			w.table.SetCell(row, 0, tview.NewTableCell(entry.Source).SetExpansion(1))
-			w.table.SetCell(row, 1, tview.NewTableCell(entry.Target).SetExpansion(1))
+			w.table.SetCell(1+row, 0, tview.NewTableCell(entry.Source).SetExpansion(1))
+			w.table.SetCell(1+row, 1, tview.NewTableCell(entry.Target).SetExpansion(1))
 		}
 	}
 	w.table.ScrollToBeginning()
