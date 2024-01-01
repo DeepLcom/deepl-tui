@@ -14,21 +14,14 @@ To install `deepl-tui` you can download a [prebuilt binary][prebuilt-binaries]
 that matches your system and place it in a directory that's part of your
 system's search path, e.g.
 ```shell
-# system information
-OS=linux
-ARCH=amd64
-
-# install dir (must exist)
-BIN_DIR=$HOME/.local/bin
-
-# download latest release into install dir
+# download latest release archive
 RELEASE_TAG=$(curl -sSfL https://api.github.com/repos/DeepLcom/deepl-tui/releases/latest | jq -r '.tag_name')
-curl -sSfL \
-    -o ${BIN_DIR}/deepl-tui \
-    https://github.com/DeepLcom/deepl-tui/releases/download/${RELEASE_TAG}/deepl-tui_${RELEASE_TAG}_${OS}_${ARCH}
+curl -sSfL -o /tmp/deepl-tui.tar.gz \
+    https://github.com/DeepLcom/deepl-tui/releases/download/${RELEASE_TAG}/deepl-tui_${RELEASE_TAG}_linux_amd64.tar.gz
 
-# make it executable
-chmod +x ${BIN_DIR}/deepl-tui
+# extract executable binary into install dir (must exist)
+INSTALL_DIR=$HOME/.local/bin
+tar -C ${INSTALL_DIR} -zxof /tmp/deepl-tui.tar.gz deepl-tui
 ```
 
 Alternatively, if you have the [Go tools][go-install] installed, you can use
