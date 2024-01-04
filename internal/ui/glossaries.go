@@ -420,6 +420,7 @@ func (w *GlossariesPage) selectedFunc(id string, index int) {
 			w.table.SetCell(row, 0, tview.NewTableCell(entry.Source).SetExpansion(1))
 			w.table.SetCell(row, 1, tview.NewTableCell(entry.Target).SetExpansion(1))
 		}
+		w.table.Select(w.table.GetRowCount(), 0) // `unselect`
 	}
 	w.table.ScrollToBeginning()
 }
@@ -468,7 +469,8 @@ func (w *GlossariesPage) onCreateEntry() {
 	w.table.
 		InsertRow(0).
 		SetCell(0, 0, tview.NewTableCell(source).SetExpansion(1)).
-		SetCell(0, 1, tview.NewTableCell(target).SetExpansion(1))
+		SetCell(0, 1, tview.NewTableCell(target).SetExpansion(1)).
+		Select(0, 0)
 }
 
 func (w *GlossariesPage) onUpdateEntry() {
