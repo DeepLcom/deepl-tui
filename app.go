@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -190,14 +191,14 @@ func (app *Application) setupGlossaryHandling() {
 		}
 	})
 
-	app.ui.SetGlossaryUpdateFunc(func(id string, entries [][2]string) {
+	app.ui.SetGlossaryUpdateFunc(func(id string, name string, entries [][2]string) {
 		info, ok := app.glossaries.Get(id)
 		if !ok {
 			app.ui.SetFooter(fmt.Sprintf("Unknown glossary id: %s", id))
 			return
 		}
 
-		if err := app.glossaries.Create(app.translator, info.Name, info.SourceLang, info.TargetLang, entries); err != nil {
+		if err := app.glossaries.Create(app.translator, name, info.SourceLang, info.TargetLang, entries); err != nil {
 			app.ui.SetFooter(err.Error())
 			return
 		}
@@ -266,6 +267,11 @@ func (app *Application) updateGlossaries() (err error) {
 	for _, info := range app.glossaries.List() {
 		opts = append(opts, [2]string{info.GlossaryId, info.Name})
 	}
+
+	// sort by name
+	sort.SliceStable(opts, func(i, j int) bool {
+		return opts[i][1] < opts[j][1]
+	})
 
 	app.ui.SetGlossaryOptions(opts)
 

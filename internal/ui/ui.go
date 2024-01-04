@@ -235,7 +235,7 @@ func (ui *UI) SetGlossaryCreateFunc(handler func(string, string, string, [][2]st
 	ui.glossariesPage.SetGlossaryCreateFunc(handler)
 }
 
-func (ui *UI) SetGlossaryUpdateFunc(handler func(string, [][2]string)) {
+func (ui *UI) SetGlossaryUpdateFunc(handler func(string, string, [][2]string)) {
 	ui.glossariesPage.SetGlossaryUpdateFunc(handler)
 }
 

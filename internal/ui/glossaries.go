@@ -21,8 +21,8 @@ type GlossariesDialog struct {
 	table    *tview.Table
 	buttons  *tview.Flex
 
-	data     func(string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)
-	accepted func(string, string)
+	data     func(id string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)
+	accepted func(id string, name string)
 	cancel   func()
 }
 
@@ -89,6 +89,7 @@ func (w *GlossariesDialog) SetOptions(options [][2]string) *GlossariesDialog {
 
 // SetDataFunc sets the handler that is used to get the glossary meta
 // information and entries to display when a glossary is selected.
+// The handler receives the id of the glossary.
 func (w *GlossariesDialog) SetDataFunc(data func(string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)) *GlossariesDialog {
 	w.data = data
 	return w
@@ -96,6 +97,7 @@ func (w *GlossariesDialog) SetDataFunc(data func(string) (deepl.GlossaryInfo, []
 
 // SetAcceptedFunc sets the handler which is called when the user accepts the
 // current option by selecting the `accept` button.
+// The handler receives the id and name of the selected glossary.
 func (w *GlossariesDialog) SetAcceptedFunc(accepted func(string, string)) *GlossariesDialog {
 	w.accepted = accepted
 	return w
@@ -231,10 +233,10 @@ type GlossariesPage struct {
 	entryForm *GlossaryEntryForm
 	table     *tview.Table
 
-	data func(string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)
+	data func(id string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)
 
 	create func(name string, source string, target string, entries [][2]string)
-	update func(id string, entries [][2]string)
+	update func(id string, name string, entries [][2]string)
 	delete func(id string)
 }
 
@@ -357,6 +359,7 @@ func (w *GlossariesPage) SetLanguageOptions(langs []string) *GlossariesPage {
 
 // SetGlossaryDataFunc sets the handler that is used to get the glossary meta
 // information and entries to display when a glossary is selected.
+// The handler receives the id of the glossary.
 func (w *GlossariesPage) SetGlossaryDataFunc(data func(string) (deepl.GlossaryInfo, []deepl.GlossaryEntry)) *GlossariesPage {
 	w.data = data
 	return w
@@ -364,18 +367,21 @@ func (w *GlossariesPage) SetGlossaryDataFunc(data func(string) (deepl.GlossaryIn
 
 // SetGlossaryCreateFunc sets the handler that is called when the user selects the
 // glossary `create` button.
+// The handler receives the name, source lang, target lang and entries for the glossary.
 func (w *GlossariesPage) SetGlossaryCreateFunc(create func(string, string, string, [][2]string)) {
 	w.create = create
 }
 
 // SetGlossaryUpdateFunc sets the handler that is called when the user selects the
 // glossary `update` button.
-func (w *GlossariesPage) SetGlossaryUpdateFunc(update func(string, [][2]string)) {
+// The handler receives the id, name and entries of the glossary.
+func (w *GlossariesPage) SetGlossaryUpdateFunc(update func(string, string, [][2]string)) {
 	w.update = update
 }
 
 // SetGlossaryDeleteFunc sets the handler that is called when the user selects the
 // glossary `delete` button.
+// The handler receives the id of the glossary.
 func (w *GlossariesPage) SetGlossaryDeleteFunc(del func(string)) {
 	w.delete = del
 }
@@ -423,6 +429,23 @@ func (w *GlossariesPage) selectedFunc(id string, index int) {
 		w.table.Select(w.table.GetRowCount(), 0) // `unselect`
 	}
 	w.table.ScrollToBeginning()
+	w.list.SetCurrentItem(index)
+}
+
+func (w *GlossariesPage) selectByName(name string) {
+	var index int = -1
+	for i := 0; i < w.list.GetItemCount(); i++ {
+		if m, _ := w.list.GetItemText(i); m == name {
+			index = i
+			break
+		}
+	}
+	if index > -1 {
+		_, id := w.list.GetItemText(index)
+		w.selectedFunc(id, index)
+	} else {
+		w.selectedFunc("", 0)
+	}
 }
 
 func (w *GlossariesPage) getTableEntries() [][2]string {
@@ -444,14 +467,18 @@ func (w *GlossariesPage) onCreateGlossary() {
 		entries := w.getTableEntries()
 
 		w.create(name, source, target, entries)
+		w.selectByName(name)
 	}
 }
 
 func (w *GlossariesPage) onUpdateGlossary() {
 	if w.update != nil {
+		name := w.infoForm.nameItem.GetText()
 		id := w.infoForm.idItem.GetText()
 		entries := w.getTableEntries()
-		w.update(id, entries)
+
+		w.update(id, name, entries)
+		w.selectByName(name)
 	}
 }
 
@@ -459,6 +486,7 @@ func (w *GlossariesPage) onDeleteGlossary() {
 	if w.delete != nil {
 		id := w.infoForm.idItem.GetText()
 		w.delete(id)
+		w.selectedFunc("", 0)
 	}
 }
 
