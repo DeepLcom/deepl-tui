@@ -24,11 +24,6 @@ INSTALL_DIR=$HOME/.local/bin
 tar -C ${INSTALL_DIR} -zxof /tmp/deepl-tui.tar.gz deepl-tui
 ```
 
-Alternatively, if you have the [Go tools][go-install] installed, you can use
-```shell
-go install github.com/DeepLcom/deepl-tui@latest
-```
-
 ## Usage
 
 Since `deepl-tui` uses the DeepL API you'll need an API authentication key.
@@ -80,5 +75,4 @@ This project is released under the [MIT License](./LICENSE).
 
 <!-- Links -->
 [prebuilt-binaries]: https://github.com/DeepLcom/deepl-tui/releases/latest
-[go-install]: https://go.dev/doc/install
 [create-account]: https://www.deepl.com/pro#developer
