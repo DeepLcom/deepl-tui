@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -22,7 +23,7 @@ type TranslatePage struct {
 	glossarySelected  func(string)
 
 	inputTextArea  *tview.TextArea
-	outputTextView *tview.TextView
+	outputTextArea *tview.TextArea
 }
 
 func newTranslatePage(ui *UI) *TranslatePage {
@@ -35,11 +36,18 @@ func newTranslatePage(ui *UI) *TranslatePage {
 
 	page.inputTextArea = tview.NewTextArea().
 		SetPlaceholder("Type to translate.")
+	page.inputTextArea.SetClipboard(copyToClipboard, pasteFromClipboard)
 
-	page.outputTextView = tview.NewTextView().
-		SetChangedFunc(func() {
-			ui.Draw()
-		})
+	page.outputTextArea = tview.NewTextArea()
+	page.outputTextArea.SetClipboard(copyToClipboard, pasteFromClipboard)
+	page.outputTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlQ { // copy to clipboard
+			return event
+		} else if event.Modifiers()&(tcell.ModAlt|tcell.ModMeta) > 0 {
+			return event
+		}
+		return nil
+	})
 
 	page.targetLangDropDown = tview.NewDropDown()
 	page.formalityDropDown = tview.NewDropDown()
@@ -61,7 +69,7 @@ func newTranslatePage(ui *UI) *TranslatePage {
 		AddItem(page.sourceLangDropDown, 0, 0, 1, 1, 0, 0, false).
 		AddItem(container, 0, 1, 1, 1, 0, 0, false).
 		AddItem(page.inputTextArea, 1, 0, 1, 1, 0, 0, true).
-		AddItem(page.outputTextView, 1, 1, 1, 1, 0, 0, false)
+		AddItem(page.outputTextArea, 1, 1, 1, 1, 0, 0, false)
 	page.layout.SetBorderPadding(0, 0, 0, 0)
 
 	page.glossaryDialog = newGlossariesDialog().
@@ -105,23 +113,26 @@ func (w *TranslatePage) setGlossariesDialogVisibility(visible bool) {
 
 func (w *TranslatePage) registerKeyBindings(ui *UI) {
 	w.layout.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Modifiers() == tcell.ModAlt {
-			switch event.Rune() {
-			case 's':
-				ui.SetFocus(w.sourceLangDropDown)
-				return nil
-			case 't':
-				ui.SetFocus(w.targetLangDropDown)
-				return nil
-			case 'f':
-				ui.SetFocus(w.formalityDropDown)
-				return nil
-			case 'g':
-				ui.SetFocus(w.glossaryButton)
-				return nil
-			case 'i':
-				ui.SetFocus(w.inputTextArea)
-				return nil
+		switch key := event.Key(); key {
+		case tcell.KeyRune:
+			if (event.Modifiers() & tcell.ModAlt) > 0 {
+				switch event.Rune() {
+				case 's':
+					ui.SetFocus(w.sourceLangDropDown)
+					return nil
+				case 't':
+					ui.SetFocus(w.targetLangDropDown)
+					return nil
+				case 'f':
+					ui.SetFocus(w.formalityDropDown)
+					return nil
+				case 'g':
+					ui.SetFocus(w.glossaryButton)
+					return nil
+				case 'i':
+					ui.SetFocus(w.inputTextArea)
+					return nil
+				}
 			}
 		}
 		return event
@@ -154,4 +165,18 @@ func (w *TranslatePage) adjustToSize() {
 	)
 
 	w.glossaryDialog.SetRect(gbx+gbw-gww, gby, gww, gwh)
+}
+
+func copyToClipboard(text string) {
+	if err := clipboard.WriteAll(text); err != nil {
+		// what?
+	}
+}
+
+func pasteFromClipboard() string {
+	text, err := clipboard.ReadAll()
+	if err != nil {
+		// what?
+	}
+	return text
 }

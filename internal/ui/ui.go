@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"io"
 	"strings"
 
@@ -103,28 +104,38 @@ func NewUI() *UI {
 		w, h := screen.Size()
 		return ui.adjustToScreenSize(w, h)
 	})
+	ui.SetAfterDrawFunc(func(screen tcell.Screen) {
+		if ui.translatePage.inputTextArea.HasFocus() {
+			if ui.translatePage.inputTextArea.HasSelection() {
+				screen.HideCursor()
+			}
+		} else if ui.translatePage.outputTextArea.HasFocus() {
+			// The output text area is treated as read-only, so it does not make
+			// sense to show the cursor in it. This also makes selecting test in
+			// it more straightforward.
+			screen.HideCursor()
+		}
+	})
 
 	return ui
 }
 
 func (ui *UI) registerKeybindings() {
 	ui.Application.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
+		switch key := event.Key(); key {
 		case tcell.KeyCtrlC:
-			// don't quit here
-			return nil
+			// send key that is usually used for copying to clipboard
+			return tcell.NewEventKey(tcell.KeyCtrlQ, 'q', tcell.ModCtrl)
 		case tcell.KeyCtrlQ:
+			// stop app, usually done on Ctrl-C
 			ui.Application.Stop()
-		}
-
-		if event.Modifiers() == tcell.ModAlt {
-			if event.Key() == tcell.KeyTab {
+		case tcell.KeyTAB:
+			if (event.Modifiers() & tcell.ModAlt) > 0 {
 				ui.cycePage()
 				return nil
 			}
-
-			switch event.Rune() {
-			case ':':
+		case tcell.KeyRune: // regular character
+			if event.Rune() == ':' && (event.Modifiers()&tcell.ModAlt) > 0 {
 				ui.switchToCommandPrompt()
 				return nil
 			}
@@ -254,17 +265,17 @@ func (ui *UI) GetInputText() string {
 }
 
 func (ui *UI) WriteOutputText(r io.Reader) error {
-	w := ui.translatePage.outputTextView.BatchWriter()
-	defer w.Close()
-	_, err := io.Copy(w, r)
+	var w bytes.Buffer
+	_, err := io.Copy(&w, r)
 	if err != nil {
 		return err
 	}
+	ui.translatePage.outputTextArea.SetText(w.String(), true)
 	return nil
 }
 
 func (ui *UI) ClearOutputText() {
-	ui.translatePage.outputTextView.Clear()
+	ui.translatePage.outputTextArea.SetText("", false)
 }
 
 // Returns a new primitive which puts the provided one at the given position
