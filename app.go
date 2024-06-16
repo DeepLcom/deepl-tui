@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -35,6 +34,7 @@ type Application struct {
 func NewApplication(t *deepl.Translator) *Application {
 	tui := ui.NewUI()
 	tui.EnableMouse(true)
+	tui.EnablePaste(false)
 
 	return &Application{
 		ui:         tui,
@@ -88,6 +88,10 @@ func (app *Application) Run() error {
 	}
 
 	return nil
+}
+
+func (app *Application) setError(err error) {
+	app.ui.SetFooter(fmt.Sprintf("Error: %v", err))
 }
 
 func (app *Application) setLanguageOptions() error {
@@ -223,39 +227,44 @@ func (app *Application) setupGlossaryHandling() {
 	})
 }
 
-func (app *Application) updateTranslation() (err error) {
-	app.ui.ClearOutputText()
+func (app *Application) updateTranslation() {
+	go func() {
+		app.ui.QueueUpdateDraw(func() {
+			app.ui.ClearOutputText()
 
-	text := app.ui.GetInputText()
-	if text == "" {
-		return nil
-	} else if app.targetLang == "" {
-		return errors.New("Target language not set")
-	}
+			text := app.ui.GetInputText()
+			if text == "" {
+				return
+			} else if app.targetLang == "" {
+				app.setError(fmt.Errorf("Target language not set"))
+				return
+			}
 
-	var opts []deepl.TranslateOption
-	if app.sourceLang != "" {
-		opts = append(opts, deepl.WithSourceLang(app.sourceLang))
-	}
-	if app.formality != "" {
-		opts = append(opts, deepl.WithFormality(app.formality))
-	}
-	if app.glossaryID != "" {
-		opts = append(opts, deepl.WithGlossaryID(app.glossaryID))
-	}
+			var opts []deepl.TranslateOption
+			if app.sourceLang != "" {
+				opts = append(opts, deepl.WithSourceLang(app.sourceLang))
+			}
+			if app.formality != "" {
+				opts = append(opts, deepl.WithFormality(app.formality))
+			}
+			if app.glossaryID != "" {
+				opts = append(opts, deepl.WithGlossaryID(app.glossaryID))
+			}
 
-	translations, err := app.translator.TranslateText([]string{text}, app.targetLang, opts...)
-	if err != nil {
-		return err
-	}
+			translations, err := app.translator.TranslateText([]string{text}, app.targetLang, opts...)
+			if err != nil {
+				app.setError(err)
+				return
+			}
 
-	for _, translation := range translations {
-		if err := app.ui.WriteOutputText(strings.NewReader(translation.Text)); err != nil {
-			return err
-		}
-	}
-
-	return nil
+			for _, translation := range translations {
+				if err := app.ui.WriteOutputText(strings.NewReader(translation.Text)); err != nil {
+					app.setError(err)
+					return
+				}
+			}
+		})
+	}()
 }
 
 func (app *Application) updateGlossaries() (err error) {
