@@ -1,5 +1,8 @@
 # DeepL TUI
 
+> [!WARNING]
+> This project is no longer maintained. Use the [deepl-cli](https://github.com/DeepLcom/deepl-cli) instead.
+
 `deepl-tui` is a terminal user interface for the DeepL language translation API.
 
 ![](./assets/demo/demo.gif)
