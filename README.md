@@ -1,5 +1,8 @@
 # DeepL TUI
 
+> [!WARNING]
+> Maintenance of this project has moved back to its original author at [codeberg.org/and2345/deepl-tui](https://codeberg.org/and2345/deepl-tui).
+
 `deepl-tui` is a terminal user interface for the DeepL language translation API.
 
 ![](./assets/demo/demo.gif)
